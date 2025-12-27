@@ -1,0 +1,57 @@
+name: Auto Label Issues
+
+# Automatisation : ajouter des labels aux issues selon le contenu
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  auto-label:
+    name: Add Labels to Issues
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Label based on title/body
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const issue = context.payload.issue;
+          const title = issue.title.toLowerCase();
+          const body = issue.body ? issue.body.toLowerCase() : '';
+          const labels = [];
+
+          // Détection automatique de labels
+          if (title.includes('bug') || body.includes('error') || body.includes('broken')) {
+            labels.push('bug');
+          }
+
+          if (title.includes('feature') || title.includes('add') || body.includes('new feature')) {
+            labels.push('enhancement');
+          }
+
+          if (title.includes('doc') || title.includes('documentation') || body.includes('readme')) {
+            labels.push('documentation');
+          }
+
+          if (title.includes('question') || title.includes('how to') || body.includes('help')) {
+            labels.push('question');
+          }
+
+          if (title.includes('/vision') || title.includes('/chat') || title.includes('/image')) {
+            labels.push('api-endpoint');
+          }
+
+          // Ajouter les labels si détectés
+          if (labels.length > 0) {
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              labels: labels
+            });
+
+            console.log(`Added labels: ${labels.join(', ')}`);
+          }

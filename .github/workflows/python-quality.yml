@@ -1,0 +1,74 @@
+name: Python Code Quality
+
+# Déclenchement automatique
+on:
+  push:
+    branches: [ main, feature/* ]
+    paths:
+      - '**.py'
+      - 'requirements.txt'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**.py'
+
+# Permissions
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  code-quality:
+    name: Check Python Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Récupérer le code
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 2. Installer Python
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    # 3. Installer les dépendances
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black pylint
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+    # 4. Vérifier le formatage avec Black
+    - name: Check code formatting (Black)
+      run: |
+        black --check examples/python/ || echo "::warning::Code formatting issues found. Run 'black examples/python/' locally to fix."
+      continue-on-error: true
+
+    # 5. Linter avec Flake8
+    - name: Lint with Flake8
+      run: |
+        # Arrêter si erreurs critiques (syntaxe, noms non définis)
+        flake8 examples/python/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Avertissements pour autres problèmes (max complexité 10, max longueur 120)
+        flake8 examples/python/ --count --max-complexity=10 --max-line-length=120 --statistics || true
+
+    # 6. Analyse avec Pylint
+    - name: Analyze with Pylint
+      run: |
+        pylint examples/python/*.py --fail-under=7.0 || echo "::warning::Pylint score below 7.0"
+      continue-on-error: true
+
+    # 7. Vérifier la syntaxe Python
+    - name: Syntax check
+      run: |
+        python -m py_compile examples/python/*.py
+
+    # 8. Résumé
+    - name: Quality check summary
+      if: always()
+      run: |
+        echo "✅ Code quality checks completed!"
+        echo "📊 Review the logs above for any warnings or suggestions."
